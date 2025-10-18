@@ -1,58 +1,56 @@
 from flask import Flask, jsonify
 import requests
+from bs4 import BeautifulSoup
 from datetime import datetime
 
 app = Flask(__name__)
 
-# Stabile Doviz-API-Links
-BANK_APIS = {
-    "akbank": {
-        "eur": "https://api.doviz.com/api/v1/bank/akbank/EUR",
-        "gold": "https://api.doviz.com/api/v1/bank/akbank/GA"
-    },
-    "isbank": {
-        "eur": "https://api.doviz.com/api/v1/bank/is-bankasi/EUR",
-        "gold": "https://api.doviz.com/api/v1/bank/is-bankasi/GA"
-    },
-    "ziraat": {
-        "eur": "https://api.doviz.com/api/v1/bank/ziraat-bankasi/EUR",
-        "gold": "https://api.doviz.com/api/v1/bank/ziraat-bankasi/GA"
-    }
+# URLs für aktuelle doviz.com-Banken-Seiten
+BANKS = {
+    "akbank": "https://kur.doviz.com/banka/akbank",
+    "isbank": "https://kur.doviz.com/banka/is-bankasi",
+    "ziraat": "https://kur.doviz.com/banka/ziraat-bankasi"
 }
 
-def get_data(url):
+def get_rates(url):
     try:
-        r = requests.get(url, timeout=10, headers={"User-Agent": "Mozilla/5.0"})
+        headers = {"User-Agent": "Mozilla/5.0"}
+        r = requests.get(url, timeout=10, headers=headers)
         r.raise_for_status()
-        j = r.json()
+        soup = BeautifulSoup(r.text, "html.parser")
 
-        alis = j.get("buying")
-        satis = j.get("selling")
-        updated = j.get("updateDate")
+        # Euro-Kurs finden
+        eur_row = soup.find("tr", {"data-vname": "EUR"})
+        gold_row = soup.find("tr", {"data-vname": "GA"})
 
-        if updated:
-            ts = datetime.fromtimestamp(updated / 1000).strftime("%d.%m.%Y %H:%M:%S")
-        else:
-            ts = datetime.now().strftime("%d.%m.%Y %H:%M:%S")
+        def parse_row(row):
+            if not row:
+                return {"alis": None, "satis": None, "time": None}
+            cols = row.find_all("td")
+            if len(cols) >= 3:
+                alis = cols[1].text.strip().replace(".", "").replace(",", ".")
+                satis = cols[2].text.strip().replace(".", "").replace(",", ".")
+                return {
+                    "alis": alis,
+                    "satis": satis,
+                    "time": datetime.now().strftime("%d.%m.%Y %H:%M:%S")
+                }
+            return {"alis": None, "satis": None, "time": None}
 
-        return {
-            "alis": alis,
-            "satis": satis,
-            "time": ts
-        }
+        eur = parse_row(eur_row)
+        gold = parse_row(gold_row)
+
+        return {"eur": eur, "gold": gold}
 
     except Exception as e:
         return {"error": str(e)}
 
 @app.route("/latest")
 def latest():
-    result = {}
-    for bank, urls in BANK_APIS.items():
-        result[bank] = {
-            "eur": get_data(urls["eur"]),
-            "gold": get_data(urls["gold"])
-        }
-    return jsonify(result)
+    data = {}
+    for bank, url in BANKS.items():
+        data[bank] = get_rates(url)
+    return jsonify(data)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
