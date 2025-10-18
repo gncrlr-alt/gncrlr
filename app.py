@@ -17,26 +17,18 @@ def parse_bank(url):
         r.raise_for_status()
         soup = BeautifulSoup(r.text, "html.parser")
 
-        def extract_value(row_selector):
-            row = soup.select_one(row_selector)
-            if not row:
-                return None, None, None
-            cols = row.find_all("td")
-            if len(cols) >= 3:
-                alis = cols[1].text.strip().replace(".", "").replace(",", ".")
-                satis = cols[2].text.strip().replace(".", "").replace(",", ".")
-                time_tag = soup.select_one("time")
-                time_val = time_tag.text.strip() if time_tag else None
-                return alis, satis, time_val
-            return None, None, None
+        def get_value(label):
+            el = soup.find("td", string=label)
+            if el and el.find_next("td"):
+                return el.find_next("td").text.strip()
+            return None
 
-        # Euro (EUR) & Gram Altın (GA / A02)
-        eur_alis, eur_satis, eur_time = extract_value("tr[data-code='EUR']")
-        gold_alis, gold_satis, gold_time = extract_value("tr[data-code='GA']")
+        eur_alis = get_value("EUR")
+        gold_alis = get_value("Gram Altın")
 
         return {
-            "eur": {"alis": eur_alis, "satis": eur_satis, "time": eur_time},
-            "gold": {"alis": gold_alis, "satis": gold_satis, "time": gold_time}
+            "eur": eur_alis,
+            "gold": gold_alis
         }
 
     except Exception as e:
@@ -44,9 +36,7 @@ def parse_bank(url):
 
 @app.route("/latest")
 def latest():
-    data = {}
-    for bank, url in BANK_URLS.items():
-        data[bank] = parse_bank(url)
+    data = {bank: parse_bank(url) for bank, url in BANK_URLS.items()}
     data["checked_at"] = datetime.now().strftime("%d.%m.%Y %H:%M:%S")
     return jsonify(data)
 
