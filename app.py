@@ -5,46 +5,56 @@ from datetime import datetime
 
 app = Flask(__name__)
 
-BANKS = {
-    "akbank": "https://www.doviz.com/kur/akbank",
-    "isbank": "https://www.doviz.com/kur/is-bankasi",
-    "ziraat": "https://www.doviz.com/kur/ziraat-bankasi"
-}
-def parse_bank(url):
-    try:
-        r = requests.get(url, timeout=10)
-        r.raise_for_status()
-        soup = BeautifulSoup(r.text, "html.parser")
+# 1️⃣ Neue Funktion, um alle Bankdaten direkt von der Doviz-Hauptseite zu holen
+def get_bank_rates():
+    url = "https://www.doviz.com"
+    r = requests.get(url, timeout=10)
+    r.raise_for_status()
+    soup = BeautifulSoup(r.text, "html.parser")
 
-        def get_value(key):
-            el = soup.find("span", {"data-socket-key": key})
-            if el:
-                return el.text.strip().replace(".", "").replace(",", ".")
-            return None
+    # Datenstruktur für die drei Banken
+    data = {"akbank": {}, "isbank": {}, "ziraat": {}}
 
-        eur_alis = get_value("EUR_ALIS")
-        eur_satis = get_value("EUR_SATIS")
-        gold_alis = get_value("GA_ALIS")
-        gold_satis = get_value("GA_SATIS")
-        time_el = soup.find("div", {"class": "market-time"})
-        time = time_el.text.strip() if time_el else "unknown"
+    # Jede Bankzeile auf der Seite finden
+    rows = soup.find_all("tr")
+    for row in rows:
+        text = row.get_text(strip=True).lower()
 
-        return {
-            "eur_alis": float(eur_alis) if eur_alis else None,
-            "eur_satis": float(eur_satis) if eur_satis else None,
-            "gold_alis": float(gold_alis) if gold_alis else None,
-            "gold_satis": float(gold_satis) if gold_satis else None,
-            "time": time
-        }
-    except Exception as e:
-        return {"error": str(e)}
+        # AKBANK
+        if "akbank" in text:
+            cols = row.find_all("td")
+            if len(cols) >= 3:
+                data["akbank"]["alis"] = cols[1].text.strip()
+                data["akbank"]["satis"] = cols[2].text.strip()
 
+        # İŞBANK
+        if "işbank" in text or "isbank" in text:
+            cols = row.find_all("td")
+            if len(cols) >= 3:
+                data["isbank"]["alis"] = cols[1].text.strip()
+                data["isbank"]["satis"] = cols[2].text.strip()
+
+        # ZİRAAT
+        if "ziraat" in text:
+            cols = row.find_all("td")
+            if len(cols) >= 3:
+                data["ziraat"]["alis"] = cols[1].text.strip()
+                data["ziraat"]["satis"] = cols[2].text.strip()
+
+    return data
+
+
+# 2️⃣ Route für /latest
 @app.route("/latest")
 def latest():
-    data = {"date": datetime.now().strftime("%d.%m.%Y")}
-    for bank, url in BANKS.items():
-        data[bank] = parse_bank(url)
-    return jsonify(data)
+    try:
+        rates = get_bank_rates()
+        date = datetime.now().strftime("%d.%m.%Y")
+        return jsonify({"date": date, **rates})
+    except Exception as e:
+        return jsonify({"error": str(e)})
 
+
+# 3️⃣ Start für Render
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
