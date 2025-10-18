@@ -13,7 +13,7 @@ BANKS = {
 }
 
 def parse_number_tr(s):
-    """Türkisches Zahlenformat (5.123,45) → float (5123.45)"""
+    """Wandelt türkische Zahlen (5.123,45) → float (5123.45)"""
     s = s.strip().replace('\xa0', ' ')
     s = s.replace('.', '').replace(',', '.')
     m = re.search(r'-?\d+(\.\d+)?', s)
@@ -29,10 +29,11 @@ def get_rates(url):
         eur_alis = eur_satis = None
         gold_alis = gold_satis = None
 
-        rows = soup.select("table tbody tr")
+        # NEUE Struktur – alle "currency" Blöcke durchgehen
+        rows = soup.select("div.table div.table-row")
 
         for row in rows:
-            cols = [c.get_text(strip=True) for c in row.find_all("td")]
+            cols = [c.get_text(strip=True) for c in row.select("div.table-cell")]
             if len(cols) < 3:
                 continue
 
@@ -40,23 +41,20 @@ def get_rates(url):
             alis = parse_number_tr(cols[1])
             satis = parse_number_tr(cols[2])
 
-            # Nur echte Alış/Satış-Werte übernehmen
-            if alis is None or satis is None:
+            if not alis or not satis:
                 continue
 
             if "eur" in name or "euro" in name:
                 eur_alis, eur_satis = alis, satis
 
-            # Explizit "gram altın" (nicht ons, nicht çeyrek)
             if "gram" in name and "alt" in name:
                 gold_alis, gold_satis = alis, satis
 
-        # Plausibilitätskontrolle – Gold darf nicht unter 4000 TL liegen
+        # Plausibilitäts-Check
         if gold_alis and gold_alis < 4000:
             gold_alis = gold_satis = None
 
         now = datetime.now().strftime("%d.%m.%Y %H:%M:%S")
-
         return {
             "eur": {"alis": eur_alis, "satis": eur_satis, "time": now},
             "gold": {"alis": gold_alis, "satis": gold_satis, "time": now}
