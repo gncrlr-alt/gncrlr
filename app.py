@@ -5,11 +5,11 @@ from datetime import datetime
 
 app = Flask(__name__)
 
-# URLs für aktuelle doviz.com-Banken-Seiten
+# Korrigierte URLs (funktionierende Seiten auf kur.doviz.com)
 BANKS = {
-    "akbank": "https://kur.doviz.com/banka/akbank",
-    "isbank": "https://kur.doviz.com/banka/is-bankasi",
-    "ziraat": "https://kur.doviz.com/banka/ziraat-bankasi"
+    "akbank": "https://kur.doviz.com/akbank",
+    "isbank": "https://kur.doviz.com/is-bankasi",
+    "ziraat": "https://kur.doviz.com/ziraat-bankasi"
 }
 
 def get_rates(url):
@@ -19,7 +19,7 @@ def get_rates(url):
         r.raise_for_status()
         soup = BeautifulSoup(r.text, "html.parser")
 
-        # Euro-Kurs finden
+        # Zeilen für EUR und GA (Gram Altın)
         eur_row = soup.find("tr", {"data-vname": "EUR"})
         gold_row = soup.find("tr", {"data-vname": "GA"})
 
@@ -28,8 +28,8 @@ def get_rates(url):
                 return {"alis": None, "satis": None, "time": None}
             cols = row.find_all("td")
             if len(cols) >= 3:
-                alis = cols[1].text.strip().replace(".", "").replace(",", ".")
-                satis = cols[2].text.strip().replace(".", "").replace(",", ".")
+                alis = cols[1].text.strip()
+                satis = cols[2].text.strip()
                 return {
                     "alis": alis,
                     "satis": satis,
