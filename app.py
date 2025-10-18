@@ -8,31 +8,43 @@ app = Flask(__name__)
 BANKS = {
     "akbank": "https://kur.doviz.com/serbest-piyasa/akbank",
     "isbank": "https://kur.doviz.com/serbest-piyasa/is-bankasi",
-    "ziraat": "https://kur.doviz.com/serbest-piyasa/ziraat-bankasi",
+    "ziraat": "https://kur.doviz.com/serbest-piyasa/ziraat-bankasi"
 }
 
 def parse_bank(url):
-    r = requests.get(url, timeout=10)
-    soup = BeautifulSoup(r.text, "html.parser")
-    eur_alis = soup.find("span", {"data-socket-key": "EUR_ALIS"}).text.strip().replace(".", "").replace(",", ".")
-    eur_satis = soup.find("span", {"data-socket-key": "EUR_SATIS"}).text.strip().replace(".", "").replace(",", ".")
-    gold_alis = soup.find("span", {"data-socket-key": "GA_ALIS"}).text.strip().replace(".", "").replace(",", ".")
-    gold_satis = soup.find("span", {"data-socket-key": "GA_SATIS"}).text.strip().replace(".", "").replace(",", ".")
-    time = soup.find("div", {"class": "market-time"}).text.strip().split()[-1]
-    return {
-        "eur_alis": round(float(eur_alis), 2),
-        "eur_satis": round(float(eur_satis), 2),
-        "gold_alis": round(float(gold_alis), 2),
-        "gold_satis": round(float(gold_satis), 2),
-        "time": time
-    }
+    try:
+        r = requests.get(url, timeout=10)
+        r.raise_for_status()
+        soup = BeautifulSoup(r.text, "html.parser")
+
+        def get_value(key):
+            el = soup.find("span", {"data-socket-key": key})
+            if el:
+                return el.text.strip().replace(".", "").replace(",", ".")
+            return None
+
+        eur_alis = get_value("EUR_ALIS")
+        eur_satis = get_value("EUR_SATIS")
+        gold_alis = get_value("GA_ALIS")
+        gold_satis = get_value("GA_SATIS")
+        time_el = soup.find("div", {"class": "market-time"})
+        time = time_el.text.strip() if time_el else "unknown"
+
+        return {
+            "eur_alis": float(eur_alis) if eur_alis else None,
+            "eur_satis": float(eur_satis) if eur_satis else None,
+            "gold_alis": float(gold_alis) if gold_alis else None,
+            "gold_satis": float(gold_satis) if gold_satis else None,
+            "time": time
+        }
+    except Exception as e:
+        return {"error": str(e)}
 
 @app.route("/latest")
 def latest():
-    data = {}
-    for key, url in BANKS.items():
-        data[key] = parse_bank(url)
-    data["date"] = datetime.now().strftime("%d.%m.%Y")
+    data = {"date": datetime.now().strftime("%d.%m.%Y")}
+    for bank, url in BANKS.items():
+        data[bank] = parse_bank(url)
     return jsonify(data)
 
 if __name__ == "__main__":
