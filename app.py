@@ -17,7 +17,6 @@ def parse_bank(url):
         r.raise_for_status()
         soup = BeautifulSoup(r.text, "html.parser")
 
-        # Finde die Kurszeilen (z.B. EUR und Gram Altın)
         rows = soup.find_all("tr")
 
         eur_alis = None
@@ -28,7 +27,7 @@ def parse_bank(url):
             if len(cols) >= 3:
                 if "EUR" in cols[0]:
                     eur_alis = cols[1]
-                elif "Gram Altın" in cols[0]:
+                elif "Gram Altın" in cols[0] or "Gram Altin" in cols[0]:
                     gold_alis = cols[1]
 
         return {
