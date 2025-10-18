@@ -6,9 +6,9 @@ from datetime import datetime
 app = Flask(__name__)
 
 BANK_URLS = {
-    "akbank": "https://www.doviz.com/bankalar/akbank",
-    "isbank": "https://www.doviz.com/bankalar/is-bankasi",
-    "ziraat": "https://www.doviz.com/bankalar/ziraat-bankasi"
+    "akbank": "https://kur.doviz.com/akbank",
+    "isbank": "https://kur.doviz.com/is-bankasi",
+    "ziraat": "https://kur.doviz.com/ziraat-bankasi"
 }
 
 def parse_bank(url):
