@@ -5,46 +5,46 @@ from datetime import datetime
 
 app = Flask(__name__)
 
-# 1️⃣ Neue Funktion, um alle Bankdaten direkt von der Doviz-Hauptseite zu holen
+# -------------------------------------------------
+#  Funktion: Bankkurse (Akbank, İşbank, Ziraat)
+# -------------------------------------------------
 def get_bank_rates():
     url = "https://www.doviz.com"
     r = requests.get(url, timeout=10)
     r.raise_for_status()
     soup = BeautifulSoup(r.text, "html.parser")
 
-    # Datenstruktur für die drei Banken
     data = {"akbank": {}, "isbank": {}, "ziraat": {}}
 
-    # Jede Bankzeile auf der Seite finden
-    rows = soup.find_all("tr")
-    for row in rows:
+    for row in soup.select("tr"):
         text = row.get_text(strip=True).lower()
+        cols = row.find_all("td")
+        if len(cols) < 3:
+            continue
 
-        # AKBANK
+        # Nur Spalten mit Zahlen (verhindert %-Werte)
+        numeric_cols = [c.text.strip() for c in cols if any(ch.isdigit() for ch in c.text)]
+        if len(numeric_cols) < 2:
+            continue
+
         if "akbank" in text:
-            cols = row.find_all("td")
-            if len(cols) >= 3:
-                data["akbank"]["alis"] = cols[1].text.strip()
-                data["akbank"]["satis"] = cols[2].text.strip()
+            data["akbank"]["alis"] = numeric_cols[0]
+            data["akbank"]["satis"] = numeric_cols[1]
 
-        # İŞBANK
         if "işbank" in text or "isbank" in text:
-            cols = row.find_all("td")
-            if len(cols) >= 3:
-                data["isbank"]["alis"] = cols[1].text.strip()
-                data["isbank"]["satis"] = cols[2].text.strip()
+            data["isbank"]["alis"] = numeric_cols[0]
+            data["isbank"]["satis"] = numeric_cols[1]
 
-        # ZİRAAT
         if "ziraat" in text:
-            cols = row.find_all("td")
-            if len(cols) >= 3:
-                data["ziraat"]["alis"] = cols[1].text.strip()
-                data["ziraat"]["satis"] = cols[2].text.strip()
+            data["ziraat"]["alis"] = numeric_cols[0]
+            data["ziraat"]["satis"] = numeric_cols[1]
 
     return data
 
 
-# 2️⃣ Route für /latest
+# -------------------------------------------------
+#  Route /latest
+# -------------------------------------------------
 @app.route("/latest")
 def latest():
     try:
@@ -55,6 +55,8 @@ def latest():
         return jsonify({"error": str(e)})
 
 
-# 3️⃣ Start für Render
+# -------------------------------------------------
+#  Render Startbefehl
+# -------------------------------------------------
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
