@@ -17,18 +17,27 @@ def parse_bank(url):
         r.raise_for_status()
         soup = BeautifulSoup(r.text, "html.parser")
 
-        rows = soup.find_all("tr")
-
         eur_alis = None
         gold_alis = None
 
-        for row in rows:
-            cols = [c.text.strip() for c in row.find_all("td")]
-            if len(cols) >= 3:
-                if "EUR" in cols[0]:
-                    eur_alis = cols[1]
-                elif "Gram Altın" in cols[0] or "Gram Altin" in cols[0]:
-                    gold_alis = cols[1]
+        # Suche nach Tabellenzeilen mit EUR oder Gram Altın
+        for tr in soup.find_all("tr"):
+            tds = [td.get_text(strip=True) for td in tr.find_all("td")]
+            if len(tds) >= 3:
+                if "EUR" in tds[0]:
+                    eur_alis = tds[1]
+                elif "Gram Altın" in tds[0] or "Gram Altin" in tds[0]:
+                    gold_alis = tds[1]
+
+        # Wenn Gold noch nicht gefunden, zusätzliche Suche (manche Seiten haben separaten Bereich)
+        if not gold_alis:
+            gold_section = soup.find_all("div", class_="item")
+            for item in gold_section:
+                if "Gram Altın" in item.get_text() or "Gram Altin" in item.get_text():
+                    span = item.find("span", class_="value")
+                    if span:
+                        gold_alis = span.get_text(strip=True)
+                        break
 
         return {
             "eur": eur_alis,
