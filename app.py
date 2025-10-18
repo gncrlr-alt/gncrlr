@@ -1,57 +1,46 @@
 from flask import Flask, jsonify
 import requests
-from bs4 import BeautifulSoup
 from datetime import datetime
 
 app = Flask(__name__)
 
 BANKS = {
-    "akbank": "https://kur.doviz.com/akbank",
-    "isbank": "https://kur.doviz.com/is-bankasi",
-    "ziraat": "https://kur.doviz.com/ziraat-bankasi"
+    "akbank": "https://api.doviz.com/api/v1/bank/akbank",
+    "isbank": "https://api.doviz.com/api/v1/bank/is-bankasi",
+    "ziraat": "https://api.doviz.com/api/v1/bank/ziraat-bankasi"
 }
 
 def get_rates(url):
     try:
-        headers = {"User-Agent": "Mozilla/5.0"}
-        r = requests.get(url, timeout=10, headers=headers)
+        r = requests.get(url, timeout=10, headers={"User-Agent": "Mozilla/5.0"})
         r.raise_for_status()
-        soup = BeautifulSoup(r.text, "html.parser")
+        data = r.json()
 
-        eur_alis = eur_satis = None
-        gold_alis = gold_satis = None
-
-        # Suche gezielt nach den data-socket-key Attributen für EUR und GA (Gram Altın)
-        eur_row = soup.find("tr", {"data-socket-key": "EUR"})
-        gold_row = soup.find("tr", {"data-socket-key": "GA"})
-
-        if eur_row:
-            cols = eur_row.find_all("td")
-            if len(cols) >= 3:
-                eur_alis = cols[1].get_text(strip=True)
-                eur_satis = cols[2].get_text(strip=True)
-
-        if gold_row:
-            cols = gold_row.find_all("td")
-            if len(cols) >= 3:
-                gold_alis = cols[1].get_text(strip=True)
-                gold_satis = cols[2].get_text(strip=True)
+        eur = data["currencies"].get("EUR", {})
+        gold = data["currencies"].get("GA", {})
 
         now = datetime.now().strftime("%d.%m.%Y %H:%M:%S")
         return {
-            "eur": {"alis": eur_alis, "satis": eur_satis, "time": now},
-            "gold": {"alis": gold_alis, "satis": gold_satis, "time": now}
+            "eur": {
+                "alis": eur.get("alis"),
+                "satis": eur.get("satis"),
+                "time": now
+            },
+            "gold": {
+                "alis": gold.get("alis"),
+                "satis": gold.get("satis"),
+                "time": now
+            }
         }
-
     except Exception as e:
         return {"error": str(e)}
 
 @app.route("/latest")
 def latest():
-    data = {}
+    result = {}
     for bank, url in BANKS.items():
-        data[bank] = get_rates(url)
-    return jsonify(data)
+        result[bank] = get_rates(url)
+    return jsonify(result)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
