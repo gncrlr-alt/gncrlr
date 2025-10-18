@@ -13,18 +13,23 @@ BANK_URLS = {
 
 def parse_bank(url):
     try:
-        r = requests.get(url, timeout=10)
+        r = requests.get(url, timeout=10, headers={"User-Agent": "Mozilla/5.0"})
         r.raise_for_status()
         soup = BeautifulSoup(r.text, "html.parser")
 
-        def get_value(label):
-            el = soup.find("td", string=label)
-            if el and el.find_next("td"):
-                return el.find_next("td").text.strip()
-            return None
+        # Finde die Kurszeilen (z.B. EUR und Gram Altın)
+        rows = soup.find_all("tr")
 
-        eur_alis = get_value("EUR")
-        gold_alis = get_value("Gram Altın")
+        eur_alis = None
+        gold_alis = None
+
+        for row in rows:
+            cols = [c.text.strip() for c in row.find_all("td")]
+            if len(cols) >= 3:
+                if "EUR" in cols[0]:
+                    eur_alis = cols[1]
+                elif "Gram Altın" in cols[0]:
+                    gold_alis = cols[1]
 
         return {
             "eur": eur_alis,
