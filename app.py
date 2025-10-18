@@ -21,20 +21,21 @@ def get_rates(url):
         eur_alis = eur_satis = None
         gold_alis = gold_satis = None
 
-        # Alle Zeilen der Tabelle durchgehen
-        for row in soup.select("table tbody tr"):
-            cols = [c.get_text(strip=True) for c in row.find_all("td")]
-            if not cols or len(cols) < 3:
-                continue
+        # Suche gezielt nach den data-socket-key Attributen für EUR und GA (Gram Altın)
+        eur_row = soup.find("tr", {"data-socket-key": "EUR"})
+        gold_row = soup.find("tr", {"data-socket-key": "GA"})
 
-            name = cols[0].lower()
-            alis = cols[1].replace(",", ".")
-            satis = cols[2].replace(",", ".")
+        if eur_row:
+            cols = eur_row.find_all("td")
+            if len(cols) >= 3:
+                eur_alis = cols[1].get_text(strip=True)
+                eur_satis = cols[2].get_text(strip=True)
 
-            if "eur" in name or "euro" in name:
-                eur_alis, eur_satis = alis, satis
-            elif "gram" in name or "altın" in name:
-                gold_alis, gold_satis = alis, satis
+        if gold_row:
+            cols = gold_row.find_all("td")
+            if len(cols) >= 3:
+                gold_alis = cols[1].get_text(strip=True)
+                gold_satis = cols[2].get_text(strip=True)
 
         now = datetime.now().strftime("%d.%m.%Y %H:%M:%S")
         return {
